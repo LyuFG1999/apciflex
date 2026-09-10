@@ -1,0 +1,289 @@
+--------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  D:\OneDrive\Project\apciflex\data\apciflex_article_example.log
+  log type:  text
+ opened on:  10 Sep 2026, 11:17:30
+
+. set rng mt64
+
+. set seed 12345
+
+. adopath ++ "ado"
+  [1]              "ado"
+  [2]  (BASE)      "D:\Personal\ProgramData\StataNow19\ado\base/"
+  [3]  (SITE)      "D:\Personal\ProgramData\StataNow19\ado\site/"
+  [4]              "."
+  [5]  (PERSONAL)  "C:\Users\lvfg1\ado\personal/"
+  [6]  (PLUS)      "C:\Users\lvfg1\ado\plus/"
+  [7]  (OLDPLACE)  "c:\ado/"
+
+. which apciflex
+ado\apciflex.ado
+*! apciflex 1.0.0 08sep2026
+*! Flexible-resolution APC-I on irregular/incomplete Lexis support
+*! identity/logit/probit links + theory-guided post-estimation aggregation
+
+. 
+. * 4.1 Generate the simulated data and inspect the observed grid.
+. clear
+
+. input byte age
+
+          age
+  1. 25
+  2. 30
+  3. 35
+  4. 40
+  5. 45
+  6. 50
+  7. 55
+  8. 60
+  9. end
+
+. tempfile ages
+
+. save "`ages'", replace
+(file C:\Users\lvfg1\AppData\Local\Temp\ST_6bc_000001.tmp not found)
+file C:\Users\lvfg1\AppData\Local\Temp\ST_6bc_000001.tmp saved as .dta format
+
+. 
+. clear
+
+. input int period
+
+       period
+  1. 2010
+  2. 2012
+  3. 2015
+  4. 2018
+  5. 2022
+  6. end
+
+. 
+. cross using "`ages'"
+
+. sort age period
+
+. 
+. * Unequal cell sizes make the example closer to survey data.
+. gen int ncell = 110 + 10*mod(age/5 + period, 5)
+
+. expand ncell
+(5,170 observations created)
+
+. bysort age period: gen int within=_n
+
+. drop ncell
+
+. 
+. * Three unobserved age-by-period cells.
+. drop if age==25 & period==2012
+(130 observations deleted)
+
+. drop if age==40 & period==2015
+(140 observations deleted)
+
+. drop if age==55 & period==2018
+(150 observations deleted)
+
+. 
+. * One observed but weak cell; mincell(30) will remove it.
+. drop if age==60 & period==2022 & within>10
+(140 observations deleted)
+
+. drop within
+
+. 
+. * Theory-guided interpretation groups.
+. gen byte agegrp=cond(age<=30,1,cond(age<=40,2,cond(age<=50,3,4)))
+
+. label define agegrp_lbl 1 "25-30" 2 "35-40" 3 "45-50" 4 "55-60"
+
+. label values agegrp agegrp_lbl
+
+. 
+. gen byte periodgrp=cond(period<=2012,1,cond(period<=2018,2,3))
+
+. label define periodgrp_lbl 1 "2010-2012" 2 "2015-2018" 3 "2022"
+
+. label values periodgrp periodgrp_lbl
+
+. 
+. * Define raw cohorts for the reporting-group variables.
+. gen int cohort=period-age
+
+. gen byte cohortgrp = cond(cohort<=1969,1, ///
+>     cond(cohort<=1979,2,cond(cohort<=1989,3,4)))
+
+. label define cohortgrp_lbl 1 "<=1969" 2 "1970-79" 3 "1980-89" 4 ">=1990"
+
+. label values cohortgrp cohortgrp_lbl
+
+. 
+. * Centered additive controls.
+. gen byte female=runiform()<.5
+
+. gen double female_c=female-.5
+
+. gen double ses_c=rnormal()
+
+. 
+. * Continuous outcome with a nonadditive cohort-related component.
+. gen double wellbeing = 5 ///
+>     + .012*(age-42.5) ///
+>     - .12*(period==2010) ///
+>     - .05*(period==2012) ///
+>     + .04*(period==2018) ///
+>     + .10*(period==2022) ///
+>     + .20*sin((cohort-1975)/5) ///
+>     + .06*((age-42.5)/17.5)*((period-2015)/7) ///
+>     + .30*female_c ///
+>     + .20*ses_c ///
+>     + rnormal(0,.55)
+
+. 
+. label variable wellbeing "Well-being score"
+
+. label variable female_c  "Female, centered"
+
+. label variable ses_c     "Socioeconomic covariate"
+
+. 
+. save "apciflex_example.dta", replace
+file apciflex_example.dta saved
+
+. 
+. * 4.1 Load the generated data and inspect the grid.
+. 
+. use "apciflex_example.dta", clear
+
+. count
+  4,650
+
+. tabulate age period
+
+           |                         period
+       age |      2010       2012       2015       2018       2022 |     Total
+-----------+-------------------------------------------------------+----------
+        25 |       110          0        110        140        130 |       490 
+        30 |       120        140        120        150        140 |       670 
+        35 |       130        150        130        110        150 |       670 
+        40 |       140        110          0        120        110 |       480 
+        45 |       150        120        150        130        120 |       670 
+        50 |       110        130        110        140        130 |       620 
+        55 |       120        140        120          0        140 |       520 
+        60 |       130        150        130        110         10 |       530 
+-----------+-------------------------------------------------------+----------
+     Total |     1,010        940        870        900        930 |     4,650 
+
+. 
+. * 4.2 Estimate the model and report grouped results.
+. apciflex wellbeing, age(age) period(period) ///
+>     agegroup(agegrp) periodgroup(periodgrp) ///
+>     cohortgroup(cohortgrp) controls(female_c ses_c) ///
+>     mincell(30) mtest(holm) vce(robust)
+
+==============================================================================
+APCIFLEX 1.0.0: FLEXIBLE-RESOLUTION APC-I
+==============================================================================
+Outcome                         : wellbeing
+Family / link                   : gaussian / identity
+APC-I component scale           : outcome (identity-link)
+Raw Age / Period variables      : age / period
+Theory Age / Period groups      : agegrp / periodgrp
+Theory Cohort group             : cohortgrp
+Cohort definition               : period - age
+Analytical rows retained        :        4,640
+Source Age / Period levels      : 8 / 5
+Potential / observed AP cells   : 40 / 37
+Structural empty AP cells       : 3
+mincell() support metric        : physical row N
+mincell() threshold             : 30
+Cells / rows removed            : 1 / 10
+Retained Age / Period / AP cells: 8 / 5 / 36
+Interaction df (support)        : 24
+VCE                             : Robust
+R-squared / Root MSE            :   0.2510 /   0.5555
+Grand mean (equal-cell; ctrls=0): 5.0037   SE=0.0082   p=<.0001
+
+GLOBAL NONADDITIVE AGE x PERIOD TEST
+F(    24,       4602) =     8.0723   p = <.0001
+
+ADDITIVE CONTROLS (UNDERLYING MODEL)
+----------------------------------------------------------------------------
+Variable               Coef.       SE         t    P>|t|        LB        UB
+female_c              0.3206   0.0164   19.6008   <.0001    0.2886    0.3527
+ses_c                 0.2057   0.0083   24.8293   <.0001    0.1895    0.2220
+Joint controls: F(2, 4602) = 496.5893, p <.0001
+
+THEORY-GUIDED AGE GROUPS
+AVERAGE COMPONENT
+--------------------------------------------------------------------------------
+> ------
+Group           Raw Cells  Average      SE         t     Pavg       LB       UB
+25-30             2     9  -0.1411  0.0146   -9.6796   <.0001  -0.1697  -0.1125
+35-40             2     9   0.0134  0.0148    0.9041   0.3660  -0.0156   0.0424
+45-50             2    10  -0.0693  0.0129   -5.3870   <.0001  -0.0946  -0.0441
+55-60             2     8   0.2169  0.0157   13.7973   <.0001   0.1860   0.2477
+
+JOINT TEST
+-------------------------------------------------
+Group             Joint F    df    Pjoint*
+25-30             53.7335     2     <.0001
+35-40              0.9440     2     0.3891
+45-50             14.5244     2     <.0001
+55-60            115.0871     2     <.0001
+
+THEORY-GUIDED PERIOD GROUPS
+AVERAGE COMPONENT
+--------------------------------------------------------------------------------
+> ------
+Group           Raw Cells  Average      SE         t     Pavg       LB       UB
+2010-2012         2    15  -0.0651  0.0099   -6.5478   <.0001  -0.0846  -0.0456
+2015-2018         2    14   0.0274  0.0104    2.6281   0.0086   0.0070   0.0478
+2022              1     7   0.0852  0.0171    4.9836   <.0001   0.0517   0.1187
+
+JOINT TEST
+-------------------------------------------------
+Group             Joint F    df    Pjoint*
+2010-2012         21.9101     2     <.0001
+2015-2018          3.5921     2     0.0276
+2022              24.8364     1     <.0001
+
+THEORY-GUIDED COHORT GROUPS
+AVERAGE COMPONENT
+--------------------------------------------------------------------------------
+> ------
+Group           Raw Cells  Average      SE         t     Pavg       LB       UB
+<=1969           10    14  -0.0111  0.0045   -2.4501   0.0143  -0.0200  -0.0022
+1970-79           6     9   0.0113  0.0118    0.9575   0.3384  -0.0118   0.0344
+1980-89           6     9   0.0621  0.0107    5.7876   <.0001   0.0411   0.0832
+>=1990            4     4  -0.0945  0.0140   -6.7386   <.0001  -0.1220  -0.0670
+
+JOINT TEST
+-------------------------------------------------
+Group             Joint F    df    Pjoint*
+<=1969             5.8811    10     <.0001
+1970-79            7.4072     6     <.0001
+1980-89           10.1713     6     <.0001
+>=1990            16.3939     4     <.0001
+Note: Pjoint* is adjusted by mtest(holm) within each displayed dimension.
+      Pavg is unadjusted.
+
+Raw Age, Period, and cohort diagnostics are stored in e().
+Specify detail to display all raw-resolution tables.
+
+Postestimation: predict xb/stdp; see help apciflex for margins on incomplete sup
+> port.
+Aggregation    : link(identity), aggweight(equal), mtest(holm).
+
+.         
+. display "ARTICLE EXAMPLES COMPLETED; SEED = 12345"
+ARTICLE EXAMPLES COMPLETED; SEED = 12345
+
+. log close
+      name:  <unnamed>
+       log:  D:\OneDrive\Project\apciflex\data\apciflex_article_example.log
+  log type:  text
+ closed on:  10 Sep 2026, 11:17:31
+--------------------------------------------------------------------------------

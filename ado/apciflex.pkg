@@ -1,0 +1,15 @@
+v 3
+d APCIFLEX 1.0.0
+d Flexible-resolution Age-Period-Cohort Interaction analysis on observed Lexis support
+d Distribution-Date: 10sep2026
+d Author: Fengguang Lyu
+d Affiliation: Department of Sociology, Xi'an Jiaotong University
+d Email: lvfg1999@126.com
+d Support: See README_APCIFLEX.txt and the accompanying Stata Journal article
+d Requires: Stata version 16
+d
+f apciflex.ado
+f apciflex_p.ado
+f apciflex.sthlp
+f README_APCIFLEX.txt
+f LICENSE.txt

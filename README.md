@@ -60,7 +60,7 @@ Bonferroni, Holm, and Benjamini–Hochberg adjustments are available for joint t
 
 ## Relationship to existing APC-I software
 
-The project builds on the APC-I framework and its existing software implementations. [Xu and Luo (2022)](https://journal.r-project.org/articles/RJ-2022-026/) introduce the R package `APCI` and Stata command `apci`; their R implementation also accommodates unequal age and period intervals. The focus of `apciflex` is the combination of decomposition on an irregular observed grid and separately defined reporting groups, using a shared fitted surface and covariance matrix.
+The project builds on the APC-I framework and its existing software implementations. [Xu and Luo (2022)](https://journal.r-project.org/articles/RJ-2022-026/) introduce the R package `APCI` and Stata command; their R implementation also accommodates unequal age and period intervals. The focus of `apciflex` is the combination of decomposition on an irregular observed grid and separately defined reporting groups, using a shared fitted surface and covariance matrix.
 
 ## Example data
 
